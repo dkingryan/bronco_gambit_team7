@@ -178,28 +178,29 @@ static void gen_pawn(const Pos *p, int from, int white, Move *moves, int *n) {
     int row = from / 8;
     int col = from % 8;
 
-    int dir = white ? 1 : -1;
-    int start_row = white ? 1 : 6;
-    int promo_row = white ? 7 : 0;
+    int dir = white ? 1 : -1; // direction of movement for the pawn
+    int start_row = white ? 1 : 6; // white pawns start on rank 2 (index 1), black pawns start on rank 7 (index 6)
+    int promo_row = white ? 7 : 0; // row where promotion occurs for white (rank 8, index 7) and black (rank 1, index 0)
 
     const char promos[4] = {'q', 'r', 'b', 'n'}; // all valid promotion pieces
 
-    // one square forward
-    int r1 = row + dir;
-    if (r1 >= 0 && r1 < 8) {
-        int to = r1 * 8 + col;
-        if (p->b[to] == '.') {
-            if (r1 == promo_row) {
+    
+    int r1 = row + dir; // one square forward
+    if (r1 >= 0 && r1 < 8) { // ensure we don't go off the board
+        int to = r1 * 8 + col; // converts the row and column back to a square index
+
+        if (p->b[to] == '.') { // if the square in front is empty
+            if (r1 == promo_row) { // if moving to the promotion row, generate moves for all promotion pieces
                 for (int i = 0; i < 4; i++)
                     add_move(moves, n, from, to, promos[i]); // one move per promotion piece
             } else {
-                add_move(moves, n, from, to, 0);
+                add_move(moves, n, from, to, 0); // normal move without promotion
             }
 
             // two squares forward from starting row
             if (row == start_row) {
-                int r2 = row + 2 * dir;
-                int to2 = r2 * 8 + col;
+                int r2 = row + 2 * dir; // two squares forward
+                int to2 = r2 * 8 + col; // converts the row and column back to a square index
                 if (p->b[to2] == '.') {
                     add_move(moves, n, from, to2, 0);
                 }
@@ -208,14 +209,14 @@ static void gen_pawn(const Pos *p, int from, int white, Move *moves, int *n) {
     }
 
     // captures (diagonal)
-    int capture_cols[2] = {col - 1, col + 1};
-    for (int i = 0; i < 2; i++) {
-        int cc = capture_cols[i];
-        if (cc < 0 || cc >= 8) continue;
-        int to = r1 * 8 + cc;
-        char target = p->b[to];
-        if (target != '.' && is_white_piece(target) != white) {
-            if (r1 == promo_row) {
+    int capture_cols[2] = {col - 1, col + 1}; // potential capture columns (left and right diagonals)
+    for (int i = 0; i < 2; i++) { 
+        int cc = capture_cols[i]; // capture column
+        if (cc < 0 || cc >= 8) continue; // ensure we don't go off the board horizontally
+        int to = r1 * 8 + cc; // target square for capture
+        char target = p->b[to]; // piece on the target square
+        if (target != '.' && is_white_piece(target) != white) { // if there's an opponent's piece to capture
+            if (r1 == promo_row) { // if capturing on the promotion row, generate moves for all promotion pieces
                 for (int j = 0; j < 4; j++)
                     add_move(moves, n, from, to, promos[j]); // capture + all promotions
             } else {
@@ -233,27 +234,27 @@ static void gen_queen(const Pos *p, int from, int white, const int dirs[][2], in
     int row = from / 8;
     int col = from % 8;
 
-    for(int i = 0; i < dcount; i++){
-        int dr = dirs[i][0];
-        int dc = dirs[i][1];
-        int r = row + dr; 
-        int f = col + dc;
+    for(int i = 0; i < dcount; i++){ // checks each direction the queen can move in
+        int dr = dirs[i][0]; // row direction (delta row)
+        int dc = dirs[i][1]; // column direction (delta column)
+        int r = row + dr; // next row in the current direction
+        int f = col + dc; // next column in the current direction
 
-        while(r >= 0 && r < 8 && f >= 0 && f < 8){
-            int to = r * 8 + f;
-            char pc = p->b[to];
+        while(r >= 0 && r < 8 && f >= 0 && f < 8){ // ensures we stay within the bounds of the board
+            int to = r * 8 + f; // converts the row and column back to a square index
+            char pc = p->b[to]; // piece on the target square
 
             if(pc == '.'){
-                add_move(moves, n, from, to, 0);
+                add_move(moves, n, from, to, 0); // if the square is empty, add the move and continue in the same direction
             } else {
-                if(is_white_piece(pc) != white){
-                    add_move(moves, n, from, to, 0);
+                if(is_white_piece(pc) != white){ // if there's an opponent's piece, add the move and then stop in this direction (can't jump over pieces)
+                    add_move(moves, n, from, to, 0); // capture move
                 }
                 break;
             }
 
-            r += dr;
-            f += dc;
+            r += dr; // move to the next square in the current direction
+            f += dc; // move to the next square in the current direction
         }
     }
 }
