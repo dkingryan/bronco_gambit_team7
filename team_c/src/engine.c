@@ -175,7 +175,54 @@ static void add_move(Move *moves, int *n, int from, int to, char promo) {
 }
 
 static void gen_pawn(const Pos *p, int from, int white, Move *moves, int *n) {
+    int row = from / 8;
+    int col = from % 8;
 
+    int dir = white ? 1 : -1;
+    int start_row = white ? 1 : 6;
+    int promo_row = white ? 7 : 0;
+
+    const char promos[4] = {'q', 'r', 'b', 'n'}; // all valid promotion pieces
+
+    // one square forward
+    int r1 = row + dir;
+    if (r1 >= 0 && r1 < 8) {
+        int to = r1 * 8 + col;
+        if (p->b[to] == '.') {
+            if (r1 == promo_row) {
+                for (int i = 0; i < 4; i++)
+                    add_move(moves, n, from, to, promos[i]); // one move per promotion piece
+            } else {
+                add_move(moves, n, from, to, 0);
+            }
+
+            // two squares forward from starting row
+            if (row == start_row) {
+                int r2 = row + 2 * dir;
+                int to2 = r2 * 8 + col;
+                if (p->b[to2] == '.') {
+                    add_move(moves, n, from, to2, 0);
+                }
+            }
+        }
+    }
+
+    // captures (diagonal)
+    int capture_cols[2] = {col - 1, col + 1};
+    for (int i = 0; i < 2; i++) {
+        int cc = capture_cols[i];
+        if (cc < 0 || cc >= 8) continue;
+        int to = r1 * 8 + cc;
+        char target = p->b[to];
+        if (target != '.' && is_white_piece(target) != white) {
+            if (r1 == promo_row) {
+                for (int j = 0; j < 4; j++)
+                    add_move(moves, n, from, to, promos[j]); // capture + all promotions
+            } else {
+                add_move(moves, n, from, to, 0);
+            }
+        }
+    }
 }
 
 static void gen_knight(const Pos *p, int from, int white, Move *moves, int *n) {
@@ -183,7 +230,32 @@ static void gen_knight(const Pos *p, int from, int white, Move *moves, int *n) {
 }
 
 static void gen_queen(const Pos *p, int from, int white, const int dirs[][2], int dcount, Move *moves, int *n) {
+    int row = from / 8;
+    int col = from % 8;
 
+    for(int i = 0; i < dcount; i++){
+        int dr = dirs[i][0];
+        int dc = dirs[i][1];
+        int r = row + dr; 
+        int f = col + dc;
+
+        while(r >= 0 && r < 8 && f >= 0 && f < 8){
+            int to = r * 8 + f;
+            char pc = p->b[to];
+
+            if(pc == '.'){
+                add_move(moves, n, from, to, 0);
+            } else {
+                if(is_white_piece(pc) != white){
+                    add_move(moves, n, from, to, 0);
+                }
+                break;
+            }
+
+            r += dr;
+            f += dc;
+        }
+    }
 }
 
 static void gen_bishop(const Pos *p, int from, int white, const int dirs[][2], int dcount, Move *moves, int *n) {
