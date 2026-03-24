@@ -231,6 +231,28 @@ static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
                 add_move(mvoes, n, from, to, 0);
         }
     }
+    
+    //CASTLING
+    int by_enemy = !white;
+    if (white){
+        if (from == 4 && !is_square_attacked(p, 4, by_enemy)){
+            if (p->castle_wk && p->b[5]=='.' && p->b[6]=='.' && p->b[7]=='R' //kingside castle
+                && !is_square_attacked(p, 5, by_enemy))
+                add_moves(moves, n, 4, 6, 0);
+            if (p->castle_wq && p->b[3]=='.' && p->b[2]=='.' && p->b[1]=='.' && p->b[0]=='R' //queenside castle
+                && !is_square_attacked(p, 3, by_enemy))
+                add_move(moves, n, 4, 2, 0);
+        }
+    }else{
+        if (from == 60 && !is_square_attcked(p, 60, by_enemy)){
+            if (p->castle_bk && p->b[61]=='.' && p->b[62]=='.' && p->b[63]=='r' //kingside
+                && !is_square_attacked(p, 61, by_enemy))
+                add_move(moves, n, 60, 62, 0);  // e8->g8
+            if (p->castle_bq && p->b[59]=='.' && p->b[58]=='.' && p->b[57]=='.' && p->b[56]=='r' //queenside
+                && !is_square_attacked(p, 59, by_enemy))
+                add_move(moves, n, 60, 58, 0);  // e8->c8
+        }
+    }
 }
 
 // generate all pseudo-legal moves for the side to move, returns the number of moves generated. Does not check for checks.
