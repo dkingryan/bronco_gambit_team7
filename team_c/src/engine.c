@@ -207,7 +207,7 @@ static void gen_rook(const Pos *p, int from, int white, const int dirs[][2], int
             }else if(is_white_piece(target)!=white){
                 add_move(moves, n, from, to, 0); //stop after capture
                 break;
-           } else {
+            } else {
                 break; //blocked by friendly piece
             }
             cr += dr;
