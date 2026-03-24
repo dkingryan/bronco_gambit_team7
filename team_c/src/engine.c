@@ -191,7 +191,29 @@ static void gen_bishop(const Pos *p, int from, int white, const int dirs[][2], i
 }
 
 static void gen_rook(const Pos *p, int from, int white, const int dirs[][2], int dcount, Move *moves, int *n) {
+    int fr = from / 8;
+    int ff = from % 8;
 
+    for (int di = 0; di < dcount; di++){
+        int df = dirs[di][0];
+        int dr = dirs[di][1];
+        int cr = fr + dr;
+        int cf = ff + df;
+        while (cr>=0 && cr<8 && cf>=0 && cf<8){
+            int to = cr*8+cf;
+            char target = p->b[to];
+            if (target == '.') {
+                add_moves(moves, n, from, to, 0);
+            }else if(is_white_piece(target)!=white){
+                add_move(moves, n, from, to, 0); //stop after capture
+                break;
+           } else {
+                break; //blocked by friendly piece
+            }
+            cr += dr;
+            cf += df;
+        }
+    }
 }
 
 static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
