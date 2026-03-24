@@ -185,9 +185,9 @@ static Pos make_move(const Pos *p, Move m) {
     np.b[m.to] = placed;
 
     //ADDED FOR CASTLING (MOVES ROOK WHEN CASTLING HAPPENS AND TURNS OFF CASTLING RIGHTS WHEN A ROOK OR KING MOVES)
-    if ((piece=='K' || piece=='k') && abs((m.to%8)-m.from%8))==2){
+    if (((piece=='K' || piece=='k') && abs((m.to%8)-m.from%8))==2){
         int rank_idx = m.from / 8;
-        if ((m.to%8)==6{ //kingside
+        if ((m.to%8)==6){ //kingside
             np.b[rank_idx*8+7] = '.';
             np.b[rank_idx*8+5] = (piece=='K') ? 'R' : 'r';
         }else{ //queenside
@@ -334,7 +334,7 @@ static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
     int fr = from / 8;
     int ff = from % 8;
 
-    for (int fr = -1; dr <= 1; dr++){
+    for (int dr = -1; dr <= 1; dr++){
         for (int df = -1; df <= 1; df++){
             if (dr==0 && df==0) continue;
             int nr = fr + dr, nf = ff + df;
@@ -342,7 +342,7 @@ static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
             int to = nr*8+nf;
             char target = p -> b[to];
             if (target == '.' || is_white_piece(target) != white)
-                add_move(mvoes, n, from, to, 0);
+                add_move(moves, n, from, to, 0);
         }
     }
     
