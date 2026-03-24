@@ -217,7 +217,20 @@ static void gen_rook(const Pos *p, int from, int white, const int dirs[][2], int
 }
 
 static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
+    int fr = from / 8;
+    int ff = from % 8;
 
+    for (int fr = -1; dr <= 1; dr++){
+        for (int df = -1; df <= 1; df++){
+            if (dr==0 && df==0) continue;
+            int nr = fr + dr, nf = ff + df;
+            if (nr < 0 || nr >= 8 || nf < 0 || nf >= 8) continue;
+            int to = nr*8+nf;
+            char target = p -> b[to];
+            if (target == '.' || is_white_piece(target) != white)
+                add_move(mvoes, n, from, to, 0);
+        }
+    }
 }
 
 // generate all pseudo-legal moves for the side to move, returns the number of moves generated. Does not check for checks.
