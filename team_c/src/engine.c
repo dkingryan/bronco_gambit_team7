@@ -14,6 +14,11 @@ typedef struct {
 typedef struct {
     char b[64];
     int white_to_move;
+    //ADDED FOR CASTLING
+    int castle_wk; //castle white kingside
+    int castle_wq; //castle white queenside
+    int castle_bk; //castle black kingside
+    int castle_bq; //castle black queenside
 } Pos;
 
 static int sq_index(const char *s) {
@@ -39,7 +44,23 @@ static void pos_from_fen(Pos *p, const char *fen) {
     char *save = NULL;
     char *placement = strtok_r(buf, " ", &save); // first token is piece placement
     char *stm = strtok_r(NULL, " ", &save); // second token is side to move
+    char *castle_str = strtok_r(NULL, " ", &save); //ADDED FOR CASTLING
+    
     if (stm) p->white_to_move = (strcmp(stm, "w") == 0); // if stm is "w", white_to_move is 1, else 0
+    
+    //ADDED FOR CASTLING
+    p->castle_wk = p->castle_wq = p->castle_bk = p->castle_bq = 0;
+    if (castle_str && strcmp(castle_str, "-") != 0) {
+        for (int i = 0; castle_str[i]; i++) {
+            switch (castle_str[i]) {
+                case 'K': p->castle_wk = 1; break;
+                case 'Q': p->castle_wq = 1; break;
+                case 'k': p->castle_bk = 1; break;
+                case 'q': p->castle_bq = 1; break;
+            }
+        }
+    }
+    
 
     int rank = 7, file = 0;
     for (size_t i = 0; placement && placement[i]; i++) {
@@ -162,6 +183,26 @@ static Pos make_move(const Pos *p, Move m) {
                      : (char) tolower((unsigned char) m.promo);
     }
     np.b[m.to] = placed;
+
+    //ADDED FOR CASTLING
+    if ((piece=='K' || piece=='k') && abs((m.to%8)-m.from%8))==2){
+        int rank_idx = m.from / 8;
+        if ((m.to%8)==6{ //kingside
+            np.b[rank_idx*8+7] = '.';
+            np.b[rank_idx*8+5] = (piece=='K') ? 'R' : 'r';
+        }else{ //queenside
+            np.b[rank_idx*8+0] = '.';
+            np.b[rank_idx*8+3] = (piece=='K') ? 'R' : 'r';
+        }
+    }
+    
+    if (piece=='K') { np.castle_wk=0; np.castle_wq=0; }
+    if (piece=='k') { np.castle_bk=0; np.castle_bq=0; }
+    if (m.from==0  || m.to==0)  np.castle_wq=0; // a1 rook
+    if (m.from==7  || m.to==7)  np.castle_wk=0; // h1 rook
+    if (m.from==56 || m.to==56) np.castle_bq=0; // a8 rook
+    if (m.from==63 || m.to==63) np.castle_bk=0; // h8 rook
+    
     np.white_to_move = !p->white_to_move;
     return np;
 }
