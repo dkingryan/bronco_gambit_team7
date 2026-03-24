@@ -14,7 +14,7 @@ typedef struct {
 typedef struct {
     char b[64];
     int white_to_move;
-    //ADDED FOR CASTLING
+    //ADDED FOR CASTLING (TRACKS IF CASTLING IS STILL ALLOWED FOR THE PIECE)
     int castle_wk; //castle white kingside
     int castle_wq; //castle white queenside
     int castle_bk; //castle black kingside
@@ -48,7 +48,7 @@ static void pos_from_fen(Pos *p, const char *fen) {
     
     if (stm) p->white_to_move = (strcmp(stm, "w") == 0); // if stm is "w", white_to_move is 1, else 0
     
-    //ADDED FOR CASTLING
+    //ADDED FOR CASTLING (READS CASTLING RIGHTS FROM THE FEN STRING AND SETS FLAGS ACCORDINGLY)
     p->castle_wk = p->castle_wq = p->castle_bk = p->castle_bq = 0;
     if (castle_str && strcmp(castle_str, "-") != 0) {
         for (int i = 0; castle_str[i]; i++) {
@@ -184,7 +184,7 @@ static Pos make_move(const Pos *p, Move m) {
     }
     np.b[m.to] = placed;
 
-    //ADDED FOR CASTLING
+    //ADDED FOR CASTLING (MOVES ROOK WHEN CASTLING HAPPENS AND TURNS OFF CASTLING RIGHTS WHEN A ROOK OR KING MOVES)
     if ((piece=='K' || piece=='k') && abs((m.to%8)-m.from%8))==2){
         int rank_idx = m.from / 8;
         if ((m.to%8)==6{ //kingside
