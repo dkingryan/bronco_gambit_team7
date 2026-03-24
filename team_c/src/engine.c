@@ -198,10 +198,10 @@ static Pos make_move(const Pos *p, Move m) {
     
     if (piece=='K') { np.castle_wk=0; np.castle_wq=0; }
     if (piece=='k') { np.castle_bk=0; np.castle_bq=0; }
-    if (m.from==0  || m.to==0)  np.castle_wq=0; // a1 rook
-    if (m.from==7  || m.to==7)  np.castle_wk=0; // h1 rook
-    if (m.from==56 || m.to==56) np.castle_bq=0; // a8 rook
-    if (m.from==63 || m.to==63) np.castle_bk=0; // h8 rook
+    if (m.from==0  || m.to==0)  np.castle_wq=0; //a1 rook
+    if (m.from==7  || m.to==7)  np.castle_wk=0; //h1 rook
+    if (m.from==56 || m.to==56) np.castle_bq=0; //a8 rook
+    if (m.from==63 || m.to==63) np.castle_bk=0; //h8 rook
     
     np.white_to_move = !p->white_to_move;
     return np;
