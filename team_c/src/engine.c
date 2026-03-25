@@ -268,6 +268,29 @@ static void gen_pawn(const Pos *p, int from, int white, Move *moves, int *n) {
 }
 
 static void gen_knight(const Pos *p, int from, int white, Move *moves, int *n) {
+    int row = from  / 8;
+    int col = from%8;
+
+    //8 possible moves
+    static const int jumps[8][2] = {
+        {2,1}, {2,-1}, {-2,1}, {-2,-1}, //Lshape of 2 (up or down) and then 1 (left or right)
+        {1,2}, {1,-2}, {-1,2}, {-1,-2} //L shape of 1 (up or down) and then 2 (left or rigt)
+    };
+
+    for (int i = 0; i <8; i++) {//try possible moves
+        int r = row + jumps[i][0]; //dest row
+        int f = col + jumps[i][1]; //dest column
+
+
+        if (r<0||r>=8||f<0||f>=8) continue; //will skip moves that go off board
+
+        int to = r*8+f; //convert row/colum to 0-63 square index
+        char pc = p->b[to]; //piece to target
+
+        if (pc == '.' || is_white_piece(pc) != white) {
+            add_move(moves, n, from, to, 0);
+        }
+    }
 
 }
 
@@ -301,6 +324,36 @@ static void gen_queen(const Pos *p, int from, int white, const int dirs[][2], in
 }
 
 static void gen_bishop(const Pos *p, int from, int white, const int dirs[][2], int dcount, Move *moves, int *n) {
+    int row = from /8;
+    int col = from%8;
+
+    for (int i = 0; i< dcount; i++)
+    {
+        int dr = dirs[i][0]; //row dir
+        int dc = dirs[i][1]; //column dir
+
+        int r = row+dr; //first square in that dir
+        int f = col+dc;
+
+        while (r>=0 && r<8 && f>=0 && f<8) { //while still on the baord
+            int to = r*8+f; //convert
+            char pc = p->b[to]; //target piece on square
+
+            
+            if (pc =='.') { //emmpty squares can move and continue going
+                add_move(moves,n,from,to,0);
+            }
+            else {//occuupied square by enemy capture it
+                if (is_white_piece(pc) != white) {
+                    add_move(moves,n,from,to,0);
+                }
+                break; //stop cannot jump over pieces
+            }
+            //miving in the same diagonal dir
+            r+=dr;
+            f+=dc;
+        }
+    }
 
 }
 
