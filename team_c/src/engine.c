@@ -41,10 +41,9 @@ static void pos_from_fen(Pos *p, const char *fen) {
     strncpy(buf, fen, sizeof(buf)-1); // copy fen to buf, ensuring null-termination
     buf[sizeof(buf) - 1] = 0;
 
-    char *save = NULL;
-    char *placement = strtok_r(buf, " ", &save); // first token is piece placement
-    char *stm = strtok_r(NULL, " ", &save); // second token is side to move
-    char *castle_str = strtok_r(NULL, " ", &save); //ADDED FOR CASTLING
+    char *placement = strtok(buf, " "); // first token is piece placement
+    char *stm = strtok(NULL, " "); // second token is side to move
+    char *castle_str = strtok(NULL, " "); //ADDED FOR CASTLING
     
     if (stm) p->white_to_move = (strcmp(stm, "w") == 0); // if stm is "w", white_to_move is 1, else 0
     
@@ -370,7 +369,7 @@ static void gen_rook(const Pos *p, int from, int white, const int dirs[][2], int
             int to = cr*8+cf;
             char target = p->b[to];
             if (target == '.') {
-                add_moves(moves, n, from, to, 0);
+                add_move(moves, n, from, to, 0);
             }else if(is_white_piece(target)!=white){
                 add_move(moves, n, from, to, 0); //stop after capture
                 break;
@@ -405,13 +404,13 @@ static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
         if (from == 4 && !is_square_attacked(p, 4, by_enemy)){
             if (p->castle_wk && p->b[5]=='.' && p->b[6]=='.' && p->b[7]=='R' //kingside castle
                 && !is_square_attacked(p, 5, by_enemy))
-                add_moves(moves, n, 4, 6, 0);
+                add_move(moves, n, 4, 6, 0);
             if (p->castle_wq && p->b[3]=='.' && p->b[2]=='.' && p->b[1]=='.' && p->b[0]=='R' //queenside castle
                 && !is_square_attacked(p, 3, by_enemy))
                 add_move(moves, n, 4, 2, 0);
         }
     }else{
-        if (from == 60 && !is_square_attcked(p, 60, by_enemy)){
+        if (from == 60 && !is_square_attacked(p, 60, by_enemy)){
             if (p->castle_bk && p->b[61]=='.' && p->b[62]=='.' && p->b[63]=='r' //kingside
                 && !is_square_attacked(p, 61, by_enemy))
                 add_move(moves, n, 60, 62, 0);  // e8->g8
@@ -484,8 +483,7 @@ static void parse_position(Pos *p, const char *line) {
 
     char *toks[128];
     int nt = 0;
-    char *save = NULL;
-    for (char *tok = strtok_r(buf, " \t\r\n", &save); tok && nt < 128; tok = strtok_r(NULL, " \t\r\n", &save)) {
+    for (char *tok = strtok(buf, " \t\r\n"); tok && nt < 128; tok = strtok(NULL, " \t\r\n")) {
         toks[nt++] = tok;
     }
 
