@@ -81,7 +81,7 @@ static void pos_from_fen(Pos *p, const char *fen) {
 }
 
 static void pos_start(Pos *p) {
-    pos_from_fen(p, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"); // lowercase = black, uppercase = white
+    pos_from_fen(p, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"); // lowercase = black, uppercase = white
 }
 
 static int is_white_piece(char c) { return c >= 'A' && c <= 'Z'; }
@@ -394,6 +394,195 @@ static void print_bestmove(Move m) {
     fflush(stdout);
 }
 
+//MATERIAL + PIECE-SQUARE TABLE (CORE INTELLIGENCE)
+static const int MATERIAL[7] = {0, 100, 320, 330, 500, 900, 20000};
+static int piece_type(char c) {
+    char u = (char)toupper((unsigned char)c);
+    switch(u) {
+        case 'P': return 1; case 'N': return 2; case 'B': return 3;
+        case 'R': return 4; case 'Q': return 5; case 'K': return 6;
+    }
+    return 0;
+}
+
+static const int PST_PAWN[64] = {
+     0,  0,  0,  0,  0,  0,  0,  0,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    10, 10, 20, 30, 30, 20, 10, 10,
+     5,  5, 10, 25, 25, 10,  5,  5,
+     0,  0,  0, 20, 20,  0,  0,  0,
+     5, -5,-10,  0,  0,-10, -5,  5,
+     5, 10, 10,-20,-20, 10, 10,  5,
+     0,  0,  0,  0,  0,  0,  0,  0
+};
+static const int PST_KNIGHT[64] = {
+   -50,-40,-30,-30,-30,-30,-40,-50,
+   -40,-20,  0,  0,  0,  0,-20,-40,
+   -30,  0, 10, 15, 15, 10,  0,-30,
+   -30,  5, 15, 20, 20, 15,  5,-30,
+   -30,  0, 15, 20, 20, 15,  0,-30,
+   -30,  5, 10, 15, 15, 10,  5,-30,
+   -40,-20,  0,  5,  5,  0,-20,-40,
+   -50,-40,-30,-30,-30,-30,-40,-50
+};
+static const int PST_BISHOP[64] = {
+   -20,-10,-10,-10,-10,-10,-10,-20,
+   -10,  0,  0,  0,  0,  0,  0,-10,
+   -10,  0,  5, 10, 10,  5,  0,-10,
+   -10,  5,  5, 10, 10,  5,  5,-10,
+   -10,  0, 10, 10, 10, 10,  0,-10,
+   -10, 10, 10, 10, 10, 10, 10,-10,
+   -10,  5,  0,  0,  0,  0,  5,-10,
+   -20,-10,-10,-10,-10,-10,-10,-20
+};
+static const int PST_ROOK[64] = {
+     0,  0,  0,  0,  0,  0,  0,  0,
+     5, 10, 10, 10, 10, 10, 10,  5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+     0,  0,  0,  5,  5,  0,  0,  0
+};
+static const int PST_QUEEN[64] = {
+   -20,-10,-10, -5, -5,-10,-10,-20,
+   -10,  0,  0,  0,  0,  0,  0,-10,
+   -10,  0,  5,  5,  5,  5,  0,-10,
+    -5,  0,  5,  5,  5,  5,  0, -5,
+     0,  0,  5,  5,  5,  5,  0, -5,
+   -10,  5,  5,  5,  5,  5,  0,-10,
+   -10,  0,  5,  0,  0,  0,  0,-10,
+   -20,-10,-10, -5, -5,-10,-10,-20
+};
+static const int PST_KING[64] = {
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -20,-30,-30,-40,-40,-30,-30,-20,
+   -10,-20,-20,-20,-20,-20,-20,-10,
+    20, 20,  0,  0,  0,  0, 20, 20,
+    20, 30, 10,  0,  0, 10, 30, 20
+};
+
+static int pst_score(char pc, int sq) {
+    int rank = sq / 8, file = sq % 8;
+    int white = is_white_piece(pc);
+    int pst_sq = white ? sq : (7 - rank) * 8 + file;
+    char up = (char)toupper((unsigned char)pc);
+    int score = 0;
+    switch(up) {
+        case 'P': score = PST_PAWN[pst_sq];   break;
+        case 'N': score = PST_KNIGHT[pst_sq]; break;
+        case 'B': score = PST_BISHOP[pst_sq]; break;
+        case 'R': score = PST_ROOK[pst_sq];   break;
+        case 'Q': score = PST_QUEEN[pst_sq];  break;
+        case 'K': score = PST_KING[pst_sq];   break;
+    }
+    return score;
+}
+
+static int evaluate(const Pos *p) {
+    int score = 0;
+    for (int i = 0; i < 64; i++) {
+        char pc = p->b[i];
+        if (pc == '.') continue;
+        int val = MATERIAL[piece_type(pc)] + pst_score(pc, i);
+        if (is_white_piece(pc)) score += val;
+        else                     score -= val;
+    }
+    return p->white_to_move ? score : -score;
+}
+
+//MOVE ORDERING (CORE INTELLIGENCE)
+static int move_score(const Pos *p, Move m) {
+    char victim  = p->b[m.to];
+    char attacker = p->b[m.from];
+    if (victim == '.') return 0; 
+    int vval = MATERIAL[piece_type(victim)];
+    int aval = MATERIAL[piece_type(attacker)];
+    return 10 * vval - aval + 10000;
+}
+
+static void sort_moves(const Pos *p, Move *moves, int n) {
+    for (int i = 1; i < n; i++) {
+        Move key = moves[i];
+        int key_score = move_score(p, key);
+        int j = i - 1;
+        while (j >= 0 && move_score(p, moves[j]) < key_score) {
+            moves[j + 1] = moves[j];
+            j--;
+        }
+        moves[j + 1] = key;
+    }
+
+//NEGAMAX, ALPHA-BETA, QUIESCENCE (CORE INTELLIGENCE)
+#define INF       1000000
+#define MAX_DEPTH 6
+
+static int quiescence(const Pos *p, int alpha, int beta) {
+    int stand_pat = evaluate(p);
+    if (stand_pat >= beta) return beta;   //beta cutoff
+    if (stand_pat > alpha) alpha = stand_pat;
+ 
+    Move moves[256];
+    int n = legal_moves(p, moves);
+    sort_moves(p, moves, n);
+ 
+    for (int i = 0; i < n; i++) {
+        if (p->b[moves[i].to] == '.') continue; //skip non-captures
+        Pos np = make_move(p, moves[i]);
+        int score = -quiescence(&np, -beta, -alpha);
+        if (score >= beta) return beta;
+        if (score > alpha) alpha = score;
+    }
+    return alpha;
+}
+
+static int negamax(const Pos *p, int depth, int alpha, int beta) {
+    if (depth == 0) return quiescence(p, alpha, beta);
+    Move moves[256];
+    int n = legal_moves(p, moves);
+    if (n == 0) {
+        // No legal moves: checkmate or stalemate
+        if (in_check(p, p->white_to_move))
+            return -INF + (MAX_DEPTH - depth); //checkmate
+        return 0; // stalemate
+    }
+ 
+    sort_moves(p, moves, n);
+    for (int i = 0; i < n; i++) {
+        Pos np = make_move(p, moves[i]);
+        int score = -negamax(&np, depth - 1, -beta, -alpha);
+        if (score >= beta) return beta;
+        if (score > alpha) alpha = score;
+    }
+    return alpha;
+}
+
+static Move find_best_move(const Pos *p) { //Root search: finds and returns the best move
+    Move moves[256];
+    int n = legal_moves(p, moves);
+    if (n == 0) {
+        Move null_move = {0, 0, 0};
+        return null_move;
+    }
+    sort_moves(p, moves, n);
+    Move best = moves[0];
+    int best_score = -INF;
+ 
+    for (int i = 0; i < n; i++) {
+        Pos np = make_move(p, moves[i]);
+        int score = -negamax(&np, MAX_DEPTH - 1, -INF, INF);
+        if (score > best_score) {
+            best_score = score;
+            best = moves[i];
+        }
+    }
+    return best;
+}
+
 int main(void) {
     Pos pos;
     pos_start(&pos);
@@ -420,13 +609,12 @@ int main(void) {
         } else if (strncmp(line, "position", 8) == 0) {
             parse_position(&pos, line);
         } else if (strncmp(line, "go", 2) == 0) {
-            Move ms[256];
-            int n = legal_moves(&pos, ms);
-            if (n <= 0) {
+            Move best = find_best_move(&pos); //CHANGED PART FOR CORE INTELLIGENCE
+            if (best.from == 0 && best.to == 0) {
                 printf("bestmove 0000\n");
                 fflush(stdout);
             } else {
-                print_bestmove(ms[0]);
+                print_bestmove(best);
             }
         } else if (strcmp(line, "quit") == 0) {
             break;
