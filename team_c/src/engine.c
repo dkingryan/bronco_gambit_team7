@@ -473,12 +473,12 @@ static int pst_score(char pc, int sq) {
     char up = (char)toupper((unsigned char)pc);
     int score = 0;
     switch(up) {
-        case 'P': score = PST_PAWN[pst_sq];   break;
+        case 'P': score = PST_PAWN[pst_sq]; break;
         case 'N': score = PST_KNIGHT[pst_sq]; break;
         case 'B': score = PST_BISHOP[pst_sq]; break;
-        case 'R': score = PST_ROOK[pst_sq];   break;
-        case 'Q': score = PST_QUEEN[pst_sq];  break;
-        case 'K': score = PST_KING[pst_sq];   break;
+        case 'R': score = PST_ROOK[pst_sq]; break;
+        case 'Q': score = PST_QUEEN[pst_sq]; break;
+        case 'K': score = PST_KING[pst_sq]; break;
     }
     return score;
 }
@@ -497,7 +497,7 @@ static int evaluate(const Pos *p) {
 
 //MOVE ORDERING (CORE INTELLIGENCE)
 static int move_score(const Pos *p, Move m) {
-    char victim  = p->b[m.to];
+    char victim = p->b[m.to];
     char attacker = p->b[m.from];
     if (victim == '.') return 0; 
     int vval = MATERIAL[piece_type(victim)];
@@ -518,12 +518,12 @@ static void sort_moves(const Pos *p, Move *moves, int n) {
     }
 
 //NEGAMAX, ALPHA-BETA, QUIESCENCE (CORE INTELLIGENCE)
-#define INF       1000000
+#define INF 1000000
 #define MAX_DEPTH 6
 
 static int quiescence(const Pos *p, int alpha, int beta) {
     int stand_pat = evaluate(p);
-    if (stand_pat >= beta) return beta;   //beta cutoff
+    if (stand_pat >= beta) return beta; //beta cutoff
     if (stand_pat > alpha) alpha = stand_pat;
  
     Move moves[256];
@@ -550,7 +550,6 @@ static int negamax(const Pos *p, int depth, int alpha, int beta) {
             return -INF + (MAX_DEPTH - depth); //checkmate
         return 0; // stalemate
     }
- 
     sort_moves(p, moves, n);
     for (int i = 0; i < n; i++) {
         Pos np = make_move(p, moves[i]);
