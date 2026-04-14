@@ -640,10 +640,11 @@ static void sort_moves(const Pos *p, Move *moves, int n) {
         }
         moves[j + 1] = key;
     }
+}
 
 //NEGAMAX, ALPHA-BETA, QUIESCENCE (CORE INTELLIGENCE)
 #define INF 1000000
-#define MAX_DEPTH 6
+#define MAX_DEPTH 4
 
 static int quiescence(const Pos *p, int alpha, int beta) {
     int stand_pat = evaluate(p);
