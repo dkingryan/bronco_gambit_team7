@@ -41,10 +41,9 @@ static void pos_from_fen(Pos *p, const char *fen) {
     strncpy(buf, fen, sizeof(buf)-1); // copy fen to buf, ensuring null-termination
     buf[sizeof(buf) - 1] = 0;
 
-    char *save = NULL;
-    char *placement = strtok_r(buf, " ", &save); // first token is piece placement
-    char *stm = strtok_r(NULL, " ", &save); // second token is side to move
-    char *castle_str = strtok_r(NULL, " ", &save); //ADDED FOR CASTLING
+    char *placement = strtok(buf, " "); // first token is piece placement
+    char *stm = strtok(NULL, " "); // second token is side to move
+    char *castle_str = strtok(NULL, " "); //ADDED FOR CASTLING
     
     if (stm) p->white_to_move = (strcmp(stm, "w") == 0); // if stm is "w", white_to_move is 1, else 0
     
@@ -191,9 +190,9 @@ static Pos make_move(const Pos *p, Move m) {
     np.b[m.to] = placed;
 
     //ADDED FOR CASTLING (MOVES ROOK WHEN CASTLING HAPPENS AND TURNS OFF CASTLING RIGHTS WHEN A ROOK OR KING MOVES)
-    if ((piece=='K' || piece=='k') && abs((m.to%8)-m.from%8))==2){
+    if (((piece=='K' || piece=='k') && abs((m.to%8)-m.from%8))==2){
         int rank_idx = m.from / 8;
-        if ((m.to%8)==6{ //kingside
+        if ((m.to%8)==6){ //kingside
             np.b[rank_idx*8+7] = '.';
             np.b[rank_idx*8+5] = (piece=='K') ? 'R' : 'r';
         }else{ //queenside
@@ -222,18 +221,144 @@ static void add_move(Move *moves, int *n, int from, int to, char promo) {
 }
 
 static void gen_pawn(const Pos *p, int from, int white, Move *moves, int *n) {
+    int row = from / 8;
+    int col = from % 8;
 
+    int dir = white ? 1 : -1; // direction of movement for the pawn
+    int start_row = white ? 1 : 6; // white pawns start on rank 2 (index 1), black pawns start on rank 7 (index 6)
+    int promo_row = white ? 7 : 0; // row where promotion occurs for white (rank 8, index 7) and black (rank 1, index 0)
+
+    const char promos[4] = {'q', 'r', 'b', 'n'}; // all valid promotion pieces
+
+    
+    int r1 = row + dir; // one square forward
+    if (r1 >= 0 && r1 < 8) { // ensure we don't go off the board
+        int to = r1 * 8 + col; // converts the row and column back to a square index
+
+        if (p->b[to] == '.') { // if the square in front is empty
+            if (r1 == promo_row) { // if moving to the promotion row, generate moves for all promotion pieces
+                for (int i = 0; i < 4; i++)
+                    add_move(moves, n, from, to, promos[i]); // one move per promotion piece
+            } else {
+                add_move(moves, n, from, to, 0); // normal move without promotion
+            }
+
+            // two squares forward from starting row
+            if (row == start_row) {
+                int r2 = row + 2 * dir; // two squares forward
+                int to2 = r2 * 8 + col; // converts the row and column back to a square index
+                if (p->b[to2] == '.') {
+                    add_move(moves, n, from, to2, 0);
+                }
+            }
+        }
+    }
+
+    // captures (diagonal)
+    int capture_cols[2] = {col - 1, col + 1}; // potential capture columns (left and right diagonals)
+    for (int i = 0; i < 2; i++) { 
+        int cc = capture_cols[i]; // capture column
+        if (cc < 0 || cc >= 8) continue; // ensure we don't go off the board horizontally
+        int to = r1 * 8 + cc; // target square for capture
+        char target = p->b[to]; // piece on the target square
+        if (target != '.' && is_white_piece(target) != white) { // if there's an opponent's piece to capture
+            if (r1 == promo_row) { // if capturing on the promotion row, generate moves for all promotion pieces
+                for (int j = 0; j < 4; j++)
+                    add_move(moves, n, from, to, promos[j]); // capture + all promotions
+            } else {
+                add_move(moves, n, from, to, 0);
+            }
+        }
+    }
 }
 
 static void gen_knight(const Pos *p, int from, int white, Move *moves, int *n) {
+    int row = from  / 8;
+    int col = from%8;
+
+    //8 possible moves
+    static const int jumps[8][2] = {
+        {2,1}, {2,-1}, {-2,1}, {-2,-1}, //Lshape of 2 (up or down) and then 1 (left or right)
+        {1,2}, {1,-2}, {-1,2}, {-1,-2} //L shape of 1 (up or down) and then 2 (left or rigt)
+    };
+
+    for (int i = 0; i <8; i++) {//try possible moves
+        int r = row + jumps[i][0]; //dest row
+        int f = col + jumps[i][1]; //dest column
+
+
+        if (r<0||r>=8||f<0||f>=8) continue; //will skip moves that go off board
+
+        int to = r*8+f; //convert row/colum to 0-63 square index
+        char pc = p->b[to]; //piece to target
+
+        if (pc == '.' || is_white_piece(pc) != white) {
+            add_move(moves, n, from, to, 0);
+        }
+    }
 
 }
 
 static void gen_queen(const Pos *p, int from, int white, const int dirs[][2], int dcount, Move *moves, int *n) {
+    int row = from / 8;
+    int col = from % 8;
 
+    for(int i = 0; i < dcount; i++){ // checks each direction the queen can move in
+        int dr = dirs[i][0]; // row direction (delta row)
+        int dc = dirs[i][1]; // column direction (delta column)
+        int r = row + dr; // next row in the current direction
+        int f = col + dc; // next column in the current direction
+
+        while(r >= 0 && r < 8 && f >= 0 && f < 8){ // ensures we stay within the bounds of the board
+            int to = r * 8 + f; // converts the row and column back to a square index
+            char pc = p->b[to]; // piece on the target square
+
+            if(pc == '.'){
+                add_move(moves, n, from, to, 0); // if the square is empty, add the move and continue in the same direction
+            } else {
+                if(is_white_piece(pc) != white){ // if there's an opponent's piece, add the move and then stop in this direction (can't jump over pieces)
+                    add_move(moves, n, from, to, 0); // capture move
+                }
+                break;
+            }
+
+            r += dr; // move to the next square in the current direction
+            f += dc; // move to the next square in the current direction
+        }
+    }
 }
 
 static void gen_bishop(const Pos *p, int from, int white, const int dirs[][2], int dcount, Move *moves, int *n) {
+    int row = from /8;
+    int col = from%8;
+
+    for (int i = 0; i< dcount; i++)
+    {
+        int dr = dirs[i][0]; //row dir
+        int dc = dirs[i][1]; //column dir
+
+        int r = row+dr; //first square in that dir
+        int f = col+dc;
+
+        while (r>=0 && r<8 && f>=0 && f<8) { //while still on the baord
+            int to = r*8+f; //convert
+            char pc = p->b[to]; //target piece on square
+
+            
+            if (pc =='.') { //emmpty squares can move and continue going
+                add_move(moves,n,from,to,0);
+            }
+            else {//occuupied square by enemy capture it
+                if (is_white_piece(pc) != white) {
+                    add_move(moves,n,from,to,0);
+                }
+                break; //stop cannot jump over pieces
+            }
+            //miving in the same diagonal dir
+            r+=dr;
+            f+=dc;
+        }
+    }
 
 }
 
@@ -250,7 +375,7 @@ static void gen_rook(const Pos *p, int from, int white, const int dirs[][2], int
             int to = cr*8+cf;
             char target = p->b[to];
             if (target == '.') {
-                add_moves(moves, n, from, to, 0);
+                add_move(moves, n, from, to, 0);
             }else if(is_white_piece(target)!=white){
                 add_move(moves, n, from, to, 0); //stop after capture
                 break;
@@ -267,7 +392,7 @@ static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
     int fr = from / 8;
     int ff = from % 8;
 
-    for (int fr = -1; dr <= 1; dr++){
+    for (int dr = -1; dr <= 1; dr++){
         for (int df = -1; df <= 1; df++){
             if (dr==0 && df==0) continue;
             int nr = fr + dr, nf = ff + df;
@@ -275,7 +400,7 @@ static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
             int to = nr*8+nf;
             char target = p -> b[to];
             if (target == '.' || is_white_piece(target) != white)
-                add_move(mvoes, n, from, to, 0);
+                add_move(moves, n, from, to, 0);
         }
     }
     
@@ -285,13 +410,13 @@ static void gen_king(const Pos *p, int from, int white, Move *moves, int *n) {
         if (from == 4 && !is_square_attacked(p, 4, by_enemy)){
             if (p->castle_wk && p->b[5]=='.' && p->b[6]=='.' && p->b[7]=='R' //kingside castle
                 && !is_square_attacked(p, 5, by_enemy))
-                add_moves(moves, n, 4, 6, 0);
+                add_move(moves, n, 4, 6, 0);
             if (p->castle_wq && p->b[3]=='.' && p->b[2]=='.' && p->b[1]=='.' && p->b[0]=='R' //queenside castle
                 && !is_square_attacked(p, 3, by_enemy))
                 add_move(moves, n, 4, 2, 0);
         }
     }else{
-        if (from == 60 && !is_square_attcked(p, 60, by_enemy)){
+        if (from == 60 && !is_square_attacked(p, 60, by_enemy)){
             if (p->castle_bk && p->b[61]=='.' && p->b[62]=='.' && p->b[63]=='r' //kingside
                 && !is_square_attacked(p, 61, by_enemy))
                 add_move(moves, n, 60, 62, 0);  // e8->g8
@@ -367,8 +492,7 @@ static void parse_position(Pos *p, const char *line) {
 
     char *toks[128];
     int nt = 0;
-    char *save = NULL;
-    for (char *tok = strtok_r(buf, " \t\r\n", &save); tok && nt < 128; tok = strtok_r(NULL, " \t\r\n", &save)) {
+    for (char *tok = strtok(buf, " \t\r\n"); tok && nt < 128; tok = strtok(NULL, " \t\r\n")) {
         toks[nt++] = tok;
     }
 
@@ -525,6 +649,7 @@ static void sort_moves(const Pos *p, Move *moves, int n) {
         }
         moves[j + 1] = key;
     }
+}
 
 //NEGAMAX, ALPHA-BETA, QUIESCENCE (CORE INTELLIGENCE)
 #define INF 1000000
