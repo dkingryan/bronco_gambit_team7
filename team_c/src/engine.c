@@ -85,6 +85,12 @@ static void pos_start(Pos *p) {
 
 static int is_white_piece(char c) { return c >= 'A' && c <= 'Z'; }
 
+static int king_exists(const Pos *p, int white) { //prevent the game from continuing after checkmate
+    char k = white ? 'K' : 'k';
+    for (int i = 0; i < 64; i++) if (p->b[i] == k) return 1;
+    return 0;
+}
+
 static int is_square_attacked(const Pos *p, int sq, int by_white) {
     int r = sq / 8, f = sq % 8;
 
@@ -450,11 +456,14 @@ static int pseudo_legal_moves(const Pos *p, Move *moves) {
 
 // generate all legal moves for the side to move, returns the number of moves generated. Checks for checks.
 static int legal_moves(const Pos *p, Move *out) {
+    if (!king_exists(p, p->white_to_move)) return 0; //prevents game from continuation after checkmate
     Move tmp[256];
     int pn = pseudo_legal_moves(p, tmp);
     int n = 0;
     for (int i = 0; i < pn; i++) {
         Pos np = make_move(p, tmp[i]);
+        if (target=='K' || target=='k') continue; //filter out any move that captures the opponent's king
+        Pos np = make_move(p, tmp[i])
         // after move, side who just moved is !np.white_to_move
         if (!in_check(&np, !np.white_to_move)) {
             out[n++] = tmp[i];
@@ -645,6 +654,13 @@ static void sort_moves(const Pos *p, Move *moves, int n) {
 //NEGAMAX, ALPHA-BETA, QUIESCENCE (CORE INTELLIGENCE)
 #define INF 1000000
 #define MAX_DEPTH 4
+#define TIME_LIMIT_MS 300
+ 
+static double g_deadline = 0.0;
+static int    g_timeout  = 0;
+static double now_sec(void) {
+    return (double)clock() / CLOCKS_PER_SEC;
+}
 
 static int quiescence(const Pos *p, int alpha, int beta) {
     int stand_pat = evaluate(p);
@@ -666,14 +682,15 @@ static int quiescence(const Pos *p, int alpha, int beta) {
 }
 
 static int negamax(const Pos *p, int depth, int alpha, int beta) {
+    if (now_sec() >= g_deadline) { g_timeout = 1; return evaluate(p); } //time check for move
     if (depth == 0) return quiescence(p, alpha, beta);
     Move moves[256];
     int n = legal_moves(p, moves);
     if (n == 0) {
-        // No legal moves: checkmate or stalemate
+        //No legal moves: checkmate or stalemate
         if (in_check(p, p->white_to_move))
             return -INF + (MAX_DEPTH - depth); //checkmate
-        return 0; // stalemate
+        return 0; //stalemate
     }
     sort_moves(p, moves, n);
     for (int i = 0; i < n; i++) {
@@ -693,10 +710,13 @@ static Move find_best_move(const Pos *p) { //Root search: finds and returns the 
         return null_move;
     }
     sort_moves(p, moves, n);
+    g_timeout  = 0; //set time deadline for move
+    g_deadline = now_sec() + (TIME_LIMIT_MS / 1000.0);
     Move best = moves[0];
     int best_score = -INF;
  
     for (int i = 0; i < n; i++) {
+        if (g_timeout) break; //return move found so far
         Pos np = make_move(p, moves[i]);
         int score = -negamax(&np, MAX_DEPTH - 1, -INF, INF);
         if (score > best_score) {
