@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 // Minimal UCI engine: first legal move.
 // No castling, no en-passant; promotions -> queen only.
@@ -461,9 +462,10 @@ static int legal_moves(const Pos *p, Move *out) {
     int pn = pseudo_legal_moves(p, tmp);
     int n = 0;
     for (int i = 0; i < pn; i++) {
+        char target = p->b[tmp[i].to];
+        char opponent_king = p->white_to_move ? 'k' : 'K';
+        if (target == opponent_king) continue; // filter out any move that captures the opponent's king
         Pos np = make_move(p, tmp[i]);
-        if (target=='K' || target=='k') continue; //filter out any move that captures the opponent's king
-        Pos np = make_move(p, tmp[i])
         // after move, side who just moved is !np.white_to_move
         if (!in_check(&np, !np.white_to_move)) {
             out[n++] = tmp[i];
